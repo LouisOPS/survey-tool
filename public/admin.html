@@ -137,6 +137,7 @@ tr:hover td{background:#fafbfc}
     <div class="survey-list" id="survey-list"></div>
     <div class="sb-footer">
       <button class="btn-icon" id="btn-pw">🔑 Mot de passe</button>
+  <button class="btn btn-secondary btn-sm" id="btn-gh-settings">⚙ GitHub</button>
       <button class="btn-icon" id="btn-logout">⬅ Déconnexion</button>
     </div>
   </aside>
@@ -253,6 +254,7 @@ $('btn-logout').addEventListener('click', async function() {
 // ── Sidebar buttons ───────────────────────────────────────────────────────────
 $('btn-new').addEventListener('click', showCreateForm);
 $('btn-pw').addEventListener('click', showPwModal);
+$('btn-gh-settings').addEventListener('click', showGhModal);
 $('btn-close-qr').addEventListener('click', function() { $('qr-modal').style.display = 'none'; });
 $('btn-close-pw').addEventListener('click', function() { $('pw-modal').style.display = 'none'; });
 $('btn-dl-qr').addEventListener('click', dlQR);
@@ -372,6 +374,7 @@ function renderDetail(survey, responses) {
       '<div class="sv-actions">' +
         '<button class="btn btn-secondary btn-sm" id="btn-qr">📱 QR Code</button>' +
       '<button class="btn btn-success btn-sm" id="btn-wa">📲 WhatsApp</button>' +
+        '<button class="btn btn-primary btn-sm" id="btn-publish">🌐 Publier en ligne</button>' +
         toggleBtn +
         '<button class="btn btn-secondary btn-sm" id="btn-csv">📥 CSV</button>' +
         '<button class="btn btn-danger btn-sm" id="btn-del">🗑 Supprimer</button>' +
@@ -388,6 +391,7 @@ function renderDetail(survey, responses) {
   // Attacher les handlers
   $('btn-qr').addEventListener('click', function() { showQR(survey.id); });
   $('btn-wa').addEventListener('click', function() { showWAModal(survey); });
+  $('btn-publish').addEventListener('click', function() { showPublishModal(survey); });
   $('btn-toggle').addEventListener('click', function() { toggleSurvey(survey.id, survey.is_active); });
   $('btn-csv').addEventListener('click', function() { exportCSV(survey.id); });
   $('btn-del').addEventListener('click', function() { delSurvey(survey.id); });
@@ -711,6 +715,125 @@ function downloadWA(format) {
     // Pas connecté, on reste sur l'écran de login
   }
 })();
+
+// ── Publish to GitHub Pages ───────────────────────────────────────────────────
+var _pubSurveyId = null;
+
+function showPublishModal(survey) {
+  _pubSurveyId = survey.id;
+  $('pub-msg').innerHTML = '';
+  $('pub-wa').value = '';
+  $('publish-modal').style.display = 'flex';
+  setTimeout(function(){ $('pub-wa').focus(); }, 100);
+  var doBtn    = $('btn-do-publish');
+  var closeBtn = $('btn-close-publish');
+  var newDo    = doBtn.cloneNode(true);
+  var newClose = closeBtn.cloneNode(true);
+  doBtn.parentNode.replaceChild(newDo, doBtn);
+  closeBtn.parentNode.replaceChild(newClose, closeBtn);
+  newDo.addEventListener('click', doPublish);
+  newClose.addEventListener('click', function(){ $('publish-modal').style.display = 'none'; });
+}
+
+async function doPublish() {
+  var wa = ($('pub-wa').value || '').replace(/\D/g,'');
+  $('pub-msg').innerHTML = '<div class="msg-ok">⏳ Publication en cours…</div>';
+  $('btn-do-publish').disabled = true;
+  try {
+    var r = await api('POST', '/api/admin/surveys/' + _pubSurveyId + '/publish', { number: wa });
+    $('pub-msg').innerHTML =
+      '<div class="msg-ok" style="line-height:1.7">✅ Publié !<br>' +
+      '<a href="' + r.url + '" target="_blank" style="color:#16a34a;font-weight:700;word-break:break-all">' + r.url + '</a><br>' +
+      '<small>⚠ GitHub Pages peut mettre 1-2 minutes à activer la première fois.</small></div>' +
+      '<img src="' + r.qr + '" style="width:180px;height:180px;display:block;margin:10px auto;border-radius:8px;border:4px solid #f0f0f0">' +
+      '<button class="btn btn-secondary" onclick="dlPublishQR('' + r.qr + '')" style="margin-top:6px">⬇ Télécharger le QR</button>';
+  } catch(e) {
+    $('pub-msg').innerHTML = '<div class="msg-error">❌ ' + esc(e.message) + '</div>';
+  }
+  $('btn-do-publish').disabled = false;
+}
+
+function dlPublishQR(dataUrl) {
+  var a = document.createElement('a');
+  a.href = dataUrl; a.download = 'qrcode-publié.png'; a.click();
+}
+
+// ── GitHub Settings ───────────────────────────────────────────────────────────
+async function showGhModal() {
+  $('gh-modal').style.display = 'flex';
+  $('gh-msg').innerHTML = '';
+  try {
+    var s = await api('GET', '/api/admin/settings/github');
+    $('gh-owner').value = s.owner || '';
+    $('gh-repo').value  = s.repo  || '';
+    if (s.hasToken) $('gh-token').placeholder = '(token enregistré — laisser vide pour conserver)';
+  } catch(_) {}
+  var saveBtn  = $('btn-save-gh');
+  var closeBtn = $('btn-close-gh');
+  var newSave  = saveBtn.cloneNode(true);
+  var newClose = closeBtn.cloneNode(true);
+  saveBtn.parentNode.replaceChild(newSave, saveBtn);
+  closeBtn.parentNode.replaceChild(newClose, closeBtn);
+  newSave.addEventListener('click', saveGh);
+  newClose.addEventListener('click', function(){ $('gh-modal').style.display = 'none'; });
+}
+
+async function saveGh() {
+  var token = $('gh-token').value.trim();
+  var owner = $('gh-owner').value.trim();
+  var repo  = $('gh-repo').value.trim();
+  try {
+    await api('POST', '/api/admin/settings/github', { token, owner, repo });
+    $('gh-msg').innerHTML = '<div class="msg-ok">✅ Configuration enregistrée !</div>';
+    setTimeout(function(){ $('gh-modal').style.display = 'none'; }, 1200);
+  } catch(e) {
+    $('gh-msg').innerHTML = '<div class="msg-error">❌ ' + esc(e.message) + '</div>';
+  }
+}
+
 </script>
+
+<!-- Publish Modal -->
+<div id="publish-modal" class="overlay" style="display:none">
+  <div class="modal" style="text-align:left;max-width:500px">
+    <h3>🌐 Publier en ligne</h3>
+    <p class="modal-desc" style="margin-bottom:14px">Le sondage sera hébergé sur <strong>GitHub Pages</strong> — accessible depuis n'importe quel réseau. Les associates scannent le QR code et répondent dans leur navigateur. <strong>Aucune réponse n'est stockée sur GitHub</strong> — elles arrivent dans ton WhatsApp.</p>
+    <div style="margin-bottom:12px">
+      <label class="lbl">Ton numéro WhatsApp (avec indicatif, ex: 33612345678)</label>
+      <input type="text" id="pub-wa" placeholder="33612345678" inputmode="numeric">
+    </div>
+    <div id="pub-msg"></div>
+    <div class="modal-btns" style="margin-top:14px;flex-direction:column;gap:8px">
+      <button class="btn btn-primary" id="btn-do-publish">🚀 Publier et générer QR</button>
+      <button class="btn btn-secondary" id="btn-close-publish">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- GitHub Settings Modal -->
+<div id="gh-modal" class="overlay" style="display:none">
+  <div class="modal" style="text-align:left;max-width:480px">
+    <h3>⚙ Configuration GitHub</h3>
+    <p class="modal-desc" style="margin-bottom:14px">Nécessaire une seule fois pour activer la publication en ligne.</p>
+    <div style="margin-bottom:10px">
+      <label class="lbl">Personal Access Token (ghp_...)</label>
+      <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxx">
+    </div>
+    <div style="margin-bottom:10px">
+      <label class="lbl">Nom d'utilisateur GitHub</label>
+      <input type="text" id="gh-owner" placeholder="LouisOPS">
+    </div>
+    <div style="margin-bottom:10px">
+      <label class="lbl">Nom du repo GitHub</label>
+      <input type="text" id="gh-repo" placeholder="survey-tool">
+    </div>
+    <div id="gh-msg"></div>
+    <div class="modal-btns" style="margin-top:14px;flex-direction:column;gap:8px">
+      <button class="btn btn-primary" id="btn-save-gh">💾 Enregistrer</button>
+      <button class="btn btn-secondary" id="btn-close-gh">Fermer</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
