@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sondage — Administration</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0f2f5;--card:#fff;--sidebar:#1a2332;--sidebar-h:#243447;
+  --accent:#ff9900;--accent-dk:#e68a00;--text:#232f3e;--muted:#6b7280;
+  --border:#e5e7eb;--danger:#ef4444;--success:#22c55e;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
+
+#login-overlay{position:fixed;inset:0;background:#1a2332;display:flex;align-items:center;justify-content:center;z-index:999}
+.login-card{background:#fff;border-radius:16px;padding:40px;width:360px;box-shadow:0 24px 80px rgba(0,0,0,.4)}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-logo .icon{font-size:40px;margin-bottom:8px}
+.login-logo h1{font-size:20px;font-weight:800}
+.login-logo p{color:var(--muted);font-size:13px;margin-top:4px}
+
+#app{display:flex;height:100vh}
+.sidebar{width:272px;background:var(--sidebar);display:flex;flex-direction:column;flex-shrink:0}
+.sb-head{padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sb-head h2{color:#fff;font-size:15px;font-weight:700}
+.sb-head p{color:rgba(255,255,255,.4);font-size:12px;margin-top:2px}
+.sb-actions{padding:12px}
+.btn-new{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer}
+.btn-new:hover{background:var(--accent-dk)}
+.survey-list{flex:1;overflow-y:auto;padding:8px}
+.s-item{padding:11px 12px;border-radius:6px;cursor:pointer;transition:background .12s;margin-bottom:2px}
+.s-item:hover{background:rgba(255,255,255,.08)}
+.s-item.active{background:var(--sidebar-h)}
+.s-title{font-size:14px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s-meta{font-size:11px;color:rgba(255,255,255,.45);margin-top:3px;display:flex;gap:8px;align-items:center}
+.badge{display:inline-flex;align-items:center;font-size:10px;padding:2px 7px;border-radius:999px;font-weight:700}
+.b-on{background:rgba(34,197,94,.18);color:#86efac}
+.b-off{background:rgba(239,68,68,.18);color:#fca5a5}
+.sb-footer{padding:10px;border-top:1px solid rgba(255,255,255,.08);display:flex;gap:6px}
+.btn-icon{flex:1;padding:8px 4px;background:rgba(255,255,255,.07);border:none;border-radius:6px;color:rgba(255,255,255,.6);cursor:pointer;font-size:12px}
+.btn-icon:hover{background:rgba(255,255,255,.15);color:#fff}
+
+.main{flex:1;overflow-y:auto;padding:28px}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);text-align:center}
+.empty-state svg{width:60px;height:60px;margin-bottom:16px;opacity:.25}
+.empty-state h3{font-size:17px;margin-bottom:6px;color:var(--text)}
+
+.card{background:var(--card);border-radius:8px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:16px}
+.card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:14px}
+
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-dk)}
+.btn-secondary{background:var(--card);color:var(--text);border:1px solid var(--border)}.btn-secondary:hover{background:var(--bg)}
+.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{background:#dc2626}
+.btn-success{background:var(--success);color:#fff}.btn-success:hover{background:#16a34a}
+.btn-sm{padding:6px 12px;font-size:12px}
+
+.sv-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:16px}
+.sv-header h2{font-size:20px;font-weight:800}
+.sv-header p{color:var(--muted);font-size:13px;margin-top:3px}
+.sv-actions{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.stat{background:var(--card);border-radius:8px;padding:18px 16px;box-shadow:0 1px 3px rgba(0,0,0,.1);text-align:center}
+.stat-val{font-size:28px;font-weight:800;color:var(--accent);line-height:1}
+.stat-lbl{font-size:12px;color:var(--muted);margin-top:5px}
+
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:var(--bg);padding:9px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:2px solid var(--border)}
+td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafbfc}
+.chip{display:inline-block;background:#eff6ff;color:#1d4ed8;padding:1px 8px;border-radius:999px;font-size:11px;margin:1px}
+.stars{color:var(--accent)}
+.login-badge{display:inline-flex;align-items:center;gap:6px;background:#f3f4f6;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
+
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:12px;font-weight:700;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+.form-group input,.form-group textarea,.form-group select{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:14px;font-family:inherit;background:#fff}
+.form-group input:focus,.form-group textarea:focus,.form-group select:focus{outline:none;border-color:var(--accent)}
+
+.q-builder{border:1.5px solid var(--border);border-radius:8px;padding:16px;margin-bottom:10px;background:var(--bg)}
+.q-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.q-num{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase}
+.opt-row{display:flex;gap:7px;margin-bottom:7px;align-items:center}
+.opt-row input{flex:1;padding:7px 10px;border:1.5px solid var(--border);border-radius:5px;font-size:13px;font-family:inherit}
+.opt-row input:focus{outline:none;border-color:var(--accent)}
+.btn-rm{padding:5px 8px;background:var(--danger);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px}
+.btn-add-opt{width:100%;background:none;border:1.5px dashed var(--border);color:var(--muted);padding:7px;border-radius:5px;cursor:pointer;font-size:12px;margin-top:4px}
+.btn-add-opt:hover{border-color:var(--accent);color:var(--accent)}
+.msg-error{background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:10px 12px;border-radius:6px;font-size:13px;margin-top:8px}
+.msg-ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#16a34a;padding:10px 12px;border-radius:6px;font-size:13px;margin-top:8px}
+
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:200}
+.modal{background:#fff;border-radius:14px;padding:32px;max-width:460px;width:90%;text-align:center}
+.modal h3{font-size:18px;font-weight:800;margin-bottom:6px}
+.modal-desc{color:var(--muted);font-size:13px;margin-bottom:18px}
+.qr-img{width:260px;height:260px;margin:0 auto 14px;border:8px solid #fff;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.qr-url{background:var(--bg);border-radius:6px;padding:9px 12px;font-size:12px;font-family:monospace;word-break:break-all;margin-bottom:14px;text-align:left}
+.modal-btns{display:flex;gap:8px;justify-content:center}
+
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:rgba(0,0,0,.18);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-overlay">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="icon">📋</div>
+      <h1>Outil de Sondage</h1>
+      <p>Tableau de bord — Administration</p>
+    </div>
+    <div class="form-group">
+      <label>Mot de passe administrateur</label>
+      <input type="password" id="login-pw" placeholder="Entrez le mot de passe…" autofocus>
+    </div>
+    <button id="login-btn" class="btn btn-primary" style="width:100%;padding:11px;font-size:14px">Se connecter</button>
+    <div id="login-err" class="msg-error" style="display:none;margin-top:10px"></div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app" style="display:none">
+  <aside class="sidebar">
+    <div class="sb-head">
+      <h2>📋 Sondages</h2>
+      <p>Administration</p>
+    </div>
+    <div class="sb-actions">
+      <button class="btn-new" id="btn-new">+ Nouveau sondage</button>
+    </div>
+    <div class="survey-list" id="survey-list"></div>
+    <div class="sb-footer">
+      <button class="btn-icon" id="btn-pw">🔑 Mot de passe</button>
+      <button class="btn-icon" id="btn-logout">⬅ Déconnexion</button>
+    </div>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+
+<!-- WhatsApp Modal -->
+<div id="wa-modal" class="overlay" style="display:none">
+  <div class="modal" style="text-align:left">
+    <h3>📲 Exporter pour WhatsApp</h3>
+    <p class="modal-desc">Un fichier HTML sera généré. Envoie-le dans WhatsApp — les associates l'ouvrent sur leur téléphone, répondent, et les réponses arrivent dans ta conversation.</p>
+    <div class="form-group" style="margin-top:12px">
+      <label>Ton numéro WhatsApp (indicatif + numéro, sans espaces)</label>
+      <input type="tel" id="wa-number" placeholder="ex : 33612345678">
+      <p style="font-size:12px;color:var(--muted);margin-top:4px">France = 33 · Belgique = 32 · Maroc = 212</p>
+    </div>
+    <div id="wa-msg"></div>
+    <div class="modal-btns" style="margin-top:14px;flex-direction:column;gap:8px">
+      <button class="btn btn-primary" id="btn-gen-wa" style="width:100%">🍎 iPhone — Générer .webarchive</button>
+      <button class="btn btn-secondary" id="btn-gen-wa-html" style="width:100%">🤖 Android — Générer .html</button>
+      <button class="btn btn-secondary" id="btn-close-wa" style="width:100%">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- QR Modal -->
+<div id="qr-modal" class="overlay" style="display:none">
+  <div class="modal">
+    <h3>QR Code du sondage</h3>
+    <p class="modal-desc">Partagez ce code avec vos associates pour qu'ils puissent voter</p>
+    <img id="qr-img" class="qr-img" src="" alt="QR Code">
+    <div class="qr-url" id="qr-url"></div>
+    <div class="modal-btns">
+      <button class="btn btn-primary" id="btn-dl-qr">⬇ Télécharger</button>
+      <button class="btn btn-secondary" id="btn-copy-url">📋 Copier le lien</button>
+      <button class="btn btn-secondary" id="btn-close-qr">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Password Modal -->
+<div id="pw-modal" class="overlay" style="display:none">
+  <div class="modal" style="text-align:left">
+    <h3>🔑 Changer le mot de passe</h3>
+    <br>
+    <div class="form-group">
+      <label>Nouveau mot de passe (min. 6 caractères)</label>
+      <input type="password" id="new-pw" placeholder="Nouveau mot de passe…">
+    </div>
+    <div class="form-group">
+      <label>Confirmer</label>
+      <input type="password" id="confirm-pw" placeholder="Confirmer…">
+    </div>
+    <div id="pw-msg"></div>
+    <div class="modal-btns" style="margin-top:16px">
+      <button class="btn btn-primary" id="btn-save-pw">Enregistrer</button>
+      <button class="btn btn-secondary" id="btn-close-pw">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function $(id) { return document.getElementById(id); }
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function api(method, url, body) {
+  var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  var r = await fetch(url, opts);
+  var d = await r.json();
+  if (!r.ok) throw new Error(d.error || 'Erreur serveur');
+  return d;
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+var currentId = null;
+var qrData    = null;
+var questions = [];
+
+// ── Login ─────────────────────────────────────────────────────────────────────
+$('login-btn').addEventListener('click', doLogin);
+$('login-pw').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
+
+async function doLogin() {
+  var pw  = $('login-pw').value;
+  var err = $('login-err');
+  err.style.display = 'none';
+  $('login-btn').textContent = 'Connexion…';
+  $('login-btn').disabled = true;
+  try {
+    await api('POST', '/api/admin/login', { password: pw });
+    $('login-overlay').style.display = 'none';
+    $('app').style.display = 'flex';
+    showEmpty();
+    await loadSurveys();
+  } catch(e) {
+    err.textContent = e.message;
+    err.style.display = 'block';
+  } finally {
+    $('login-btn').textContent = 'Se connecter';
+    $('login-btn').disabled = false;
+  }
+}
+
+// ── Logout ────────────────────────────────────────────────────────────────────
+$('btn-logout').addEventListener('click', async function() {
+  await api('POST', '/api/admin/logout');
+  location.reload();
+});
+
+// ── Sidebar buttons ───────────────────────────────────────────────────────────
+$('btn-new').addEventListener('click', showCreateForm);
+$('btn-pw').addEventListener('click', showPwModal);
+$('btn-close-qr').addEventListener('click', function() { $('qr-modal').style.display = 'none'; });
+$('btn-close-pw').addEventListener('click', function() { $('pw-modal').style.display = 'none'; });
+$('btn-dl-qr').addEventListener('click', dlQR);
+$('btn-copy-url').addEventListener('click', copyURL);
+$('btn-save-pw').addEventListener('click', changePw);
+
+// ── Survey list ───────────────────────────────────────────────────────────────
+async function loadSurveys() {
+  var list = await api('GET', '/api/admin/surveys');
+  var el   = $('survey-list');
+  if (!list.length) {
+    el.innerHTML = '<p style="padding:16px;color:rgba(255,255,255,.35);font-size:12px;text-align:center">Aucun sondage —<br>créez-en un !</p>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < list.length; i++) {
+    var s = list[i];
+    html += '<div class="s-item' + (currentId === s.id ? ' active' : '') + '" data-id="' + esc(s.id) + '">';
+    html += '<div class="s-title">' + esc(s.title) + '</div>';
+    html += '<div class="s-meta">';
+    html += '<span class="badge ' + (s.is_active ? 'b-on' : 'b-off') + '">' + (s.is_active ? '● Actif' : '● Fermé') + '</span>';
+    html += '<span>' + s.response_count + ' réponse' + (s.response_count !== 1 ? 's' : '') + '</span>';
+    html += '</div></div>';
+  }
+  el.innerHTML = html;
+  el.querySelectorAll('.s-item').forEach(function(item) {
+    item.addEventListener('click', function() { selectSurvey(this.dataset.id); });
+  });
+}
+
+// ── Survey detail ─────────────────────────────────────────────────────────────
+async function selectSurvey(id) {
+  if (!id) { showEmpty(); currentId = null; return; }
+  currentId = id;
+  await loadSurveys();
+  try {
+    var res = await api('GET', '/api/admin/surveys/' + id + '/results');
+    renderDetail(res.survey, res.responses);
+  } catch(e) {
+    $('main').innerHTML = '<div class="empty-state"><p style="color:var(--danger)">' + esc(e.message) + '</p></div>';
+  }
+}
+
+function typeLabel(t) {
+  var map = { radio:'Choix unique', checkbox:'Choix multiple', text:'Texte libre', rating:'Note 1-5' };
+  return map[t] || t;
+}
+
+function renderDetail(survey, responses) {
+  var count = responses.length;
+  var date  = survey.created_at ? new Date(survey.created_at).toLocaleDateString('fr-FR') : '';
+
+  // Table des résultats
+  var tableHtml = '';
+  if (count === 0) {
+    tableHtml = '<p style="text-align:center;color:var(--muted);padding:32px;font-size:13px">Aucune réponse pour le moment.</p>';
+  } else {
+    var thead = '<thead><tr><th>Associate</th><th>Date</th>';
+    for (var qi = 0; qi < survey.questions.length; qi++) {
+      thead += '<th>' + esc(survey.questions[qi].text) + '</th>';
+    }
+    thead += '</tr></thead>';
+
+    var tbody = '<tbody>';
+    for (var ri = 0; ri < responses.length; ri++) {
+      var r = responses[ri];
+      tbody += '<tr>';
+      tbody += '<td><span class="login-badge">👤 ' + esc(r.associate_login) + '</span></td>';
+      tbody += '<td style="color:var(--muted);font-size:12px">' + new Date(r.submitted_at).toLocaleString('fr-FR') + '</td>';
+      for (var qi2 = 0; qi2 < survey.questions.length; qi2++) {
+        var q = survey.questions[qi2];
+        var a = r.answers[qi2];
+        if (a === undefined || a === null) {
+          tbody += '<td style="color:var(--muted)">—</td>';
+        } else if (q.type === 'rating') {
+          var n = parseInt(a);
+          tbody += '<td><span class="stars">' + '★'.repeat(n) + '☆'.repeat(5 - n) + '</span> <span style="font-size:12px;color:var(--muted)">' + n + '/5</span></td>';
+        } else if (Array.isArray(a)) {
+          var chips = a.map(function(x) { return '<span class="chip">' + esc(x) + '</span>'; }).join('');
+          tbody += '<td>' + chips + '</td>';
+        } else {
+          tbody += '<td style="font-size:13px">' + esc(String(a)) + '</td>';
+        }
+      }
+      tbody += '</tr>';
+    }
+    tbody += '</tbody>';
+    tableHtml = '<div class="tbl-wrap"><table>' + thead + tbody + '</table></div>';
+  }
+
+  // Questions list
+  var qList = '';
+  for (var qi3 = 0; qi3 < survey.questions.length; qi3++) {
+    var q3 = survey.questions[qi3];
+    qList += '<div style="padding:10px 0;' + (qi3 > 0 ? 'border-top:1px solid var(--border)' : '') + '">';
+    qList += '<span style="font-size:12px;font-weight:700;color:var(--accent)">Q' + (qi3+1) + '</span>';
+    qList += ' <span style="font-size:13px;font-weight:600">' + esc(q3.text) + '</span>';
+    qList += ' <span class="badge" style="background:#f3f4f6;color:var(--muted)">' + typeLabel(q3.type) + '</span>';
+    if (q3.options) {
+      qList += '<div style="margin-top:5px;padding-left:18px;font-size:12px;color:var(--muted)">' + q3.options.map(function(o){ return '• ' + esc(o); }).join('  ') + '</div>';
+    }
+    qList += '</div>';
+  }
+
+  var statusBadge = '<span class="badge ' + (survey.is_active ? 'b-on' : 'b-off') + '" style="font-size:13px;padding:5px 12px">' + (survey.is_active ? '● Actif' : '● Fermé') + '</span>';
+  var toggleBtn = survey.is_active
+    ? '<button class="btn btn-danger btn-sm" id="btn-toggle">🔒 Fermer le sondage</button>'
+    : '<button class="btn btn-success btn-sm" id="btn-toggle">🔓 Ouvrir le sondage</button>';
+
+  $('main').innerHTML =
+    '<div class="sv-header">' +
+      '<div>' +
+        '<h2>' + esc(survey.title) + '</h2>' +
+        (survey.description ? '<p>' + esc(survey.description) + '</p>' : '') +
+        (date ? '<p style="margin-top:4px;font-size:12px;color:var(--muted)">Créé le ' + date + '</p>' : '') +
+      '</div>' +
+      '<div class="sv-actions">' +
+        '<button class="btn btn-secondary btn-sm" id="btn-qr">📱 QR Code</button>' +
+      '<button class="btn btn-success btn-sm" id="btn-wa">📲 WhatsApp</button>' +
+        toggleBtn +
+        '<button class="btn btn-secondary btn-sm" id="btn-csv">📥 CSV</button>' +
+        '<button class="btn btn-danger btn-sm" id="btn-del">🗑 Supprimer</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="stats">' +
+      '<div class="stat"><div class="stat-val">' + count + '</div><div class="stat-lbl">Réponses reçues</div></div>' +
+      '<div class="stat"><div class="stat-val">' + survey.questions.length + '</div><div class="stat-lbl">Questions</div></div>' +
+      '<div class="stat"><div class="stat-val">' + statusBadge + '</div><div class="stat-lbl">Statut</div></div>' +
+    '</div>' +
+    '<div class="card"><div class="card-title">Réponses des associates</div>' + tableHtml + '</div>' +
+    '<div class="card"><div class="card-title">Questions (' + survey.questions.length + ')</div>' + qList + '</div>';
+
+  // Attacher les handlers
+  $('btn-qr').addEventListener('click', function() { showQR(survey.id); });
+  $('btn-wa').addEventListener('click', function() { showWAModal(survey); });
+  $('btn-toggle').addEventListener('click', function() { toggleSurvey(survey.id, survey.is_active); });
+  $('btn-csv').addEventListener('click', function() { exportCSV(survey.id); });
+  $('btn-del').addEventListener('click', function() { delSurvey(survey.id); });
+}
+
+// ── QR Code ───────────────────────────────────────────────────────────────────
+async function showQR(id) {
+  qrData = await api('GET', '/api/admin/surveys/' + id + '/qr');
+  $('qr-img').src = qrData.qr;
+  $('qr-url').textContent = qrData.url;
+  $('qr-modal').style.display = 'flex';
+}
+function dlQR() {
+  if (!qrData) return;
+  var a = document.createElement('a');
+  a.href = qrData.qr; a.download = 'qrcode-sondage.png'; a.click();
+}
+function copyURL() {
+  if (!qrData) return;
+  navigator.clipboard.writeText(qrData.url).then(function() { alert('Lien copié !'); });
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+async function toggleSurvey(id, active) {
+  await api('PUT', '/api/admin/surveys/' + id, { is_active: !active });
+  await selectSurvey(id);
+}
+async function delSurvey(id) {
+  if (!confirm('Supprimer ce sondage et toutes ses réponses ? Cette action est irréversible.')) return;
+  await api('DELETE', '/api/admin/surveys/' + id);
+  currentId = null;
+  showEmpty();
+  await loadSurveys();
+}
+function exportCSV(id) {
+  window.location.href = '/api/admin/surveys/' + id + '/export';
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+function showEmpty() {
+  $('main').innerHTML =
+    '<div class="empty-state">' +
+    '<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+    '<rect x="8" y="8" width="48" height="48" rx="8" stroke="currentColor" stroke-width="2.5"/>' +
+    '<line x1="20" y1="24" x2="44" y2="24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>' +
+    '<line x1="20" y1="32" x2="44" y2="32" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>' +
+    '<line x1="20" y1="40" x2="36" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>' +
+    '</svg>' +
+    '<h3>Sélectionnez un sondage</h3>' +
+    '<p style="font-size:13px">ou créez-en un nouveau</p>' +
+    '</div>';
+}
+
+// ── Create form ───────────────────────────────────────────────────────────────
+function showCreateForm() {
+  questions = [];
+  currentId = null;
+  loadSurveys();
+  $('main').innerHTML =
+    '<div style="max-width:700px">' +
+    '<div class="sv-header">' +
+      '<h2>Nouveau sondage</h2>' +
+      '<button class="btn btn-secondary btn-sm" id="btn-cancel-form">✕ Annuler</button>' +
+    '</div>' +
+    '<div class="card">' +
+      '<div class="form-group"><label>Titre *</label><input type="text" id="f-title" placeholder="Ex : Satisfaction mensuelle — Équipe réception"></div>' +
+      '<div class="form-group"><label>Description (optionnelle)</label><input type="text" id="f-desc" placeholder="Description visible par les associates"></div>' +
+    '</div>' +
+    '<div id="q-container"></div>' +
+    '<button class="btn btn-secondary" id="btn-add-q" style="width:100%;margin-bottom:14px">+ Ajouter une question</button>' +
+    '<div id="f-msg"></div>' +
+    '<button class="btn btn-primary" id="btn-submit-form" style="width:100%;padding:12px;font-size:15px">✅ Créer le sondage</button>' +
+    '<div style="height:32px"></div>' +
+    '</div>';
+
+  $('btn-cancel-form').addEventListener('click', function() { showEmpty(); loadSurveys(); });
+  $('btn-add-q').addEventListener('click', addQuestion);
+  $('btn-submit-form').addEventListener('click', submitForm);
+
+  addQuestion(); // démarrer avec une question
+}
+
+function addQuestion() {
+  questions.push({ text: '', type: 'radio', options: ['', ''] });
+  renderQ(questions.length - 1);
+}
+
+function syncQFromDOM(idx) {
+  var card = document.getElementById('q-' + idx);
+  if (!card) return;
+  var ti = card.querySelector('.q-text-in');
+  if (ti) questions[idx].text = ti.value;
+  if (questions[idx].options) {
+    var opts = card.querySelectorAll('.q-opt-in');
+    for (var i = 0; i < opts.length; i++) {
+      if (questions[idx].options[i] !== undefined) questions[idx].options[i] = opts[i].value;
+    }
+  }
+}
+
+function renderQ(idx) {
+  var container = $('q-container');
+  var q = questions[idx];
+  var old = document.getElementById('q-' + idx);
+
+  var div = document.createElement('div');
+  div.className = 'card q-builder';
+  div.id = 'q-' + idx;
+
+  var optionsHtml = '';
+  if (q.type === 'radio' || q.type === 'checkbox') {
+    optionsHtml += '<div><div class="form-group"><label>Options (min. 2) *</label>';
+    optionsHtml += '<div id="opts-' + idx + '">';
+    for (var oi = 0; oi < q.options.length; oi++) {
+      optionsHtml += '<div class="opt-row">';
+      optionsHtml += '<input class="q-opt-in" type="text" value="' + esc(q.options[oi]) + '" placeholder="Option ' + (oi+1) + '" data-qi="' + idx + '" data-oi="' + oi + '">';
+      optionsHtml += '<button class="btn-rm" data-qi="' + idx + '" data-oi="' + oi + '">✕</button>';
+      optionsHtml += '</div>';
+    }
+    optionsHtml += '</div>';
+    optionsHtml += '<button class="btn-add-opt" data-qi="' + idx + '">+ Ajouter une option</button>';
+    optionsHtml += '</div></div>';
+  } else if (q.type === 'rating') {
+    optionsHtml = '<p style="font-size:12px;color:var(--muted)">Les associates noteront de 1 (mauvais) à 5 (excellent) ⭐</p>';
+  } else {
+    optionsHtml = '<p style="font-size:12px;color:var(--muted)">Les associates saisiront une réponse libre.</p>';
+  }
+
+  div.innerHTML =
+    '<div class="q-head">' +
+      '<span class="q-num">Question ' + (idx+1) + '</span>' +
+      '<button class="btn btn-danger btn-sm btn-rm-q" data-qi="' + idx + '">✕ Supprimer</button>' +
+    '</div>' +
+    '<div class="form-group"><label>Énoncé *</label>' +
+      '<input class="q-text-in" type="text" value="' + esc(q.text) + '" placeholder="Entrez votre question…">' +
+    '</div>' +
+    '<div class="form-group"><label>Type de réponse</label>' +
+      '<select class="q-type-sel">' +
+        '<option value="radio"'    + (q.type==='radio'    ? ' selected' : '') + '>Choix unique (radio)</option>' +
+        '<option value="checkbox"' + (q.type==='checkbox' ? ' selected' : '') + '>Choix multiple (checkbox)</option>' +
+        '<option value="text"'     + (q.type==='text'     ? ' selected' : '') + '>Texte libre</option>' +
+        '<option value="rating"'   + (q.type==='rating'   ? ' selected' : '') + '>Note de 1 à 5 ⭐</option>' +
+      '</select>' +
+    '</div>' +
+    optionsHtml;
+
+  if (old) old.replaceWith(div);
+  else container.appendChild(div);
+
+  // Handlers
+  div.querySelector('.q-text-in').addEventListener('input', function() { questions[idx].text = this.value; });
+  div.querySelector('.q-type-sel').addEventListener('change', function() {
+    syncQFromDOM(idx);
+    var newType = this.value;
+    questions[idx].type = newType;
+    if (newType === 'radio' || newType === 'checkbox') {
+      if (!questions[idx].options || questions[idx].options.length < 2) questions[idx].options = ['', ''];
+    } else {
+      delete questions[idx].options;
+    }
+    renderQ(idx);
+  });
+  div.querySelector('.btn-rm-q').addEventListener('click', function() { removeQ(idx); });
+  div.querySelectorAll('.q-opt-in').forEach(function(inp) {
+    inp.addEventListener('input', function() {
+      questions[this.dataset.qi].options[this.dataset.oi] = this.value;
+    });
+  });
+  div.querySelectorAll('.btn-rm').forEach(function(btn) {
+    btn.addEventListener('click', function() { rmOpt(parseInt(this.dataset.qi), parseInt(this.dataset.oi)); });
+  });
+  var addOptBtn = div.querySelector('.btn-add-opt');
+  if (addOptBtn) {
+    addOptBtn.addEventListener('click', function() { addOpt(parseInt(this.dataset.qi)); });
+  }
+}
+
+function removeQ(idx) {
+  syncQFromDOM(idx);
+  questions.splice(idx, 1);
+  $('q-container').innerHTML = '';
+  for (var i = 0; i < questions.length; i++) renderQ(i);
+}
+function addOpt(qIdx) {
+  syncQFromDOM(qIdx);
+  questions[qIdx].options.push('');
+  renderQ(qIdx);
+}
+function rmOpt(qIdx, oi) {
+  syncQFromDOM(qIdx);
+  if (questions[qIdx].options.length <= 2) { alert('Minimum 2 options requises.'); return; }
+  questions[qIdx].options.splice(oi, 1);
+  renderQ(qIdx);
+}
+
+async function submitForm() {
+  // Sync all from DOM first
+  for (var i = 0; i < questions.length; i++) syncQFromDOM(i);
+
+  var title = $('f-title').value.trim();
+  var desc  = $('f-desc').value.trim();
+  var msg   = $('f-msg');
+
+  if (!title)            { msg.innerHTML = '<div class="msg-error">Le titre est requis.</div>'; return; }
+  if (!questions.length) { msg.innerHTML = '<div class="msg-error">Ajoutez au moins une question.</div>'; return; }
+
+  for (var i = 0; i < questions.length; i++) {
+    var q = questions[i];
+    if (!q.text) { msg.innerHTML = '<div class="msg-error">Question ' + (i+1) + ' : l\'énoncé est requis.</div>'; return; }
+    if ((q.type === 'radio' || q.type === 'checkbox') && q.options.some(function(o){ return !o.trim(); })) {
+      msg.innerHTML = '<div class="msg-error">Question ' + (i+1) + ' : toutes les options doivent être remplies.</div>'; return;
+    }
+  }
+
+  try {
+    var res = await api('POST', '/api/admin/surveys', { title: title, description: desc, questions: questions });
+    msg.innerHTML = '<div class="msg-ok">✅ Sondage créé !</div>';
+    await loadSurveys();
+    setTimeout(function() { selectSurvey(res.id); }, 600);
+  } catch(e) {
+    msg.innerHTML = '<div class="msg-error">' + esc(e.message) + '</div>';
+  }
+}
+
+// ── Password ──────────────────────────────────────────────────────────────────
+function showPwModal() {
+  $('pw-msg').innerHTML = '';
+  $('new-pw').value = '';
+  $('confirm-pw').value = '';
+  $('pw-modal').style.display = 'flex';
+}
+async function changePw() {
+  var pw  = $('new-pw').value;
+  var cf  = $('confirm-pw').value;
+  var msg = $('pw-msg');
+  if (pw !== cf) { msg.innerHTML = '<div class="msg-error">Les mots de passe ne correspondent pas.</div>'; return; }
+  try {
+    await api('POST', '/api/admin/change-password', { newPassword: pw });
+    msg.innerHTML = '<div class="msg-ok">✅ Mot de passe mis à jour !</div>';
+    setTimeout(function() { $('pw-modal').style.display = 'none'; }, 1500);
+  } catch(e) {
+    msg.innerHTML = '<div class="msg-error">' + esc(e.message) + '</div>';
+  }
+}
+
+// ── WhatsApp Export ──────────────────────────────────────────────────────────
+var _waSurveyId = null;
+
+function showWAModal(survey) {
+  _waSurveyId = survey.id;
+  $('wa-msg').innerHTML = '';
+  $('wa-number').value = '';
+  $('wa-modal').style.display = 'flex';
+  setTimeout(function(){ $('wa-number').focus(); }, 100);
+  // Attacher les handlers à chaque ouverture (clone pour éviter doublons)
+  var genBtn   = $('btn-gen-wa');
+  var closeBtn = $('btn-close-wa');
+  var waInput  = $('wa-number');
+  var newGen   = genBtn.cloneNode(true);
+  var newClose = closeBtn.cloneNode(true);
+  genBtn.parentNode.replaceChild(newGen, genBtn);
+  closeBtn.parentNode.replaceChild(newClose, closeBtn);
+  newGen.addEventListener('click', function(){ downloadWA('webarchive'); });
+  var genHtmlBtn = $('btn-gen-wa-html');
+  if (genHtmlBtn) {
+    var newGenHtml = genHtmlBtn.cloneNode(true);
+    genHtmlBtn.parentNode.replaceChild(newGenHtml, genHtmlBtn);
+    newGenHtml.addEventListener('click', function(){ downloadWA('html'); });
+  }
+  newClose.addEventListener('click', function(){ $('wa-modal').style.display = 'none'; });
+  waInput.onkeydown = function(e){ if(e.key==='Enter') downloadWA(); };
+}
+// Handlers WA attachés depuis renderDetail / showWAModal
+
+function downloadWA(format) {
+  var num = $('wa-number').value.replace(/\D/g,'');
+  if (!num || num.length < 8) {
+    $('wa-msg').innerHTML = '<div class="msg-error">Numéro invalide — entre ton indicatif pays + numéro sans espaces.</div>';
+    return;
+  }
+  var fmt = (format === 'html') ? 'whatsapp' : 'webarchive';
+  var url = '/api/admin/surveys/' + _waSurveyId + '/' + fmt + '?number=' + num;
+  $('wa-msg').innerHTML = '<div class="msg-ok">⏳ Génération en cours…</div>';
+  $('btn-gen-wa').disabled = true;
+  fetch(url, { credentials: 'include' })
+    .then(function(r) {
+      if (!r.ok) throw new Error('Erreur serveur ' + r.status);
+      var cd = r.headers.get('Content-Disposition') || '';
+      var m  = cd.match(/filename="([^"]+)"/);
+      var fn = m ? m[1] : 'sondage.html';
+      return r.blob().then(function(b){ return { blob: b, name: fn }; });
+    })
+    .then(function(d) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(d.blob);
+      a.download = d.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+      $('wa-msg').innerHTML = '<div class="msg-ok">✅ Fichier téléchargé !<br><small>Envoie-le dans WhatsApp. Les associates l\'ouvrent dans leur navigateur.</small></div>';
+      $('btn-gen-wa').disabled = false;
+    })
+    .catch(function(e) {
+      $('wa-msg').innerHTML = '<div class="msg-error">❌ ' + e.message + '</div>';
+      $('btn-gen-wa').disabled = false;
+    });
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+(async function init() {
+  try {
+    var res = await api('GET', '/api/admin/me');
+    if (res.isAdmin) {
+      $('login-overlay').style.display = 'none';
+      $('app').style.display = 'flex';
+      showEmpty();
+      await loadSurveys();
+    }
+  } catch(e) {
+    // Pas connecté, on reste sur l'écran de login
+  }
+})();
+</script>
+</body>
+</html>
